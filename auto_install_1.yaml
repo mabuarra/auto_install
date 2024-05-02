@@ -12,7 +12,7 @@ storage:
     - {ptable: gpt, path: /dev/sda, wipe: superblock-recursive, preserve: false, name: '', grub_device: true}
     # Erstellt eine GUID Partition Table (GPT) auf /dev/sda, löscht alle bestehenden Daten
     - {device: /dev/sda, size: 30G, flag: '', number: 1, type: 'ef00'}
-    # Erstellt eine 5 GB große Partition für das EFI-System (/boot/efi)
+    # Erstellt eine 30 GB große Partition für das EFI-System (/boot/efi)
     - {device: /dev/sda, size: -1, type: '8309', number: 2}
     # Nutzt den verbleibenden Speicherplatz auf /dev/sda für die Hauptpartition
     - {type: format, volume: /dev/sda1, fstype: fat32, label: boot}
@@ -24,9 +24,9 @@ storage:
     - {type: lvm_volgroup, name: ubuntu-vg, devices: ['/dev/mapper/cryptroot']}
     # Erstellt eine Volume-Gruppe 'ubuntu-vg' auf dem verschlüsselten Gerät
     - {type: lvm_partition, name: root, volgroup: ubuntu-vg, size: '50G'}
-    # Erstellt ein logisches Volume für das Wurzelverzeichnis mit 15 GB
+    # Erstellt ein logisches Volume für das Wurzelverzeichnis mit 50 GB
     - {type: lvm_partition, name: home, volgroup: ubuntu-vg, size: '40G'}
-    # Erstellt ein logisches Volume für /home mit 10 GB
+    # Erstellt ein logisches Volume für /home mit 40 GB
     - {type: format, volume: /dev/ubuntu-vg/root, fstype: ext4}
     # Formatiert das Root-Volume mit ext4
     - {type: format, volume: /dev/ubuntu-vg/home, fstype: ext4}
@@ -68,7 +68,7 @@ late-commands:
   # Fügt das Swap-File zur /etc/fstab hinzu, damit es beim Booten verwendet wird
   - curtin in-target --target=/target -- swapoff -a
   # Deaktiviert alle aktiven Swap-Dateien und -Partitionen
-  - curtin in-target --target=/target -- fallocate -l 4G /swapfile
+  - curtin in-target --target=/target -- fallocate -l 40G /swapfile
   # Erstellt eine 4 GB große Swap-Datei
   - curtin in-target --target=/target -- chmod 600 /swapfile
   # Setzt die Berechtigungen der Swap-Datei
