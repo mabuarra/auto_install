@@ -1,0 +1,114 @@
+autoinstall:
+  version: 1
+  locale: de_DE
+  keyboard:
+    layout: de
+    variant: ""
+
+storage:
+  layout:
+    name: lvm
+  config:
+    - ptable: gpt
+      path: /dev/sda
+      wipe: superblock-recursive
+      preserve: false
+      name: ''
+      grub_device: true
+      # Erstellt eine GUID Partition Table (GPT) auf /dev/sda, löscht alle bestehenden Daten
+    - device: /dev/sda
+      size: 5G
+      flag: ''
+      number: 1
+      type: 'ef00'
+      # Erstellt eine 5 GB große Partition für das EFI-System (/boot/efi)
+    - device: /dev/sda
+      size: -1
+      type: '8309'
+      number: 2
+      # Nutzt den verbleibenden Speicherplatz auf /dev/sda für die Hauptpartition
+    - type: format
+      volume: /dev/sda1
+      fstype: fat32
+      label: boot
+      # Formatiert die EFI-Systempartition mit FAT32
+    - type: format
+      volume: /dev/sda2
+      fstype: 'crypto_LUKS'
+      # Formatiert die zweite Partition mit LUKS für die Verschlüsselung
+    - type: cryptsetup
+      volume: /dev/sda2
+      name: cryptroot
+      # Initialisiert die LUKS-Verschlüsselung auf /dev/sda2
+    - type: lvm_volgroup
+      name: ubuntu-vg
+      devices: ['/dev/mapper/cryptroot']
+      # Erstellt eine Volume-Gruppe 'ubuntu-vg' auf dem verschlüsselten Gerät
+    - type: lvm_partition
+      name: root
+      volgroup: ubuntu-vg
+      size: '15G'
+      # Erstellt ein logisches Volume für das Wurzelverzeichnis mit 15 GB
+    - type: lvm_partition
+      name: home
+      volgroup: ubuntu-vg
+      size: '10G'
+      # Erstellt ein logisches Volume für /home mit 10 GB
+    - type: format
+      volume: /dev/ubuntu-vg/root
+      fstype: ext4
+      # Formatiert das Root-Volume mit ext4
+    - type: format
+      volume: /dev/ubuntu-vg/home
+      fstype: ext4
+      # Formatiert das Home-Volume mit ext4
+    - type: mount
+      path: /
+      device: /dev/ubuntu-vg/root
+      # Mountet das Root-Volume auf /
+    - type: mount
+      path: /home
+      device: /dev/ubuntu-vg/home
+      # Mountet das Home-Volume auf /home
+
+identity:
+  hostname: ubuntu-desktop
+  username: ubuntu_test
+  password: test123456
+
+ssh:
+  install-server: true
+  allow-pw: true
+  authorized-keys: 
+    - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDJ20GiH9K2+oOSgY6FGaycEMlHI6HjhV1sV6oLuRO8MHlROc8uggOLZ3WQe4/hIAsiMI6dw6EjJK3fNjU4mWLWkAc7UsL/SD4oTDIb/FPrm/Ij8C7lNelKJsFzltiOHyAn+5UPMLb1R4jQ/S+P1zvTZI4XicGbZJpNCDyzHsxwHBludIMjav3vAY5JoRq+Sm6Z1CNpjKRCW+an6WSt5M2Z/nDT2O6ks907mkapUOCv6BJErXvz4Zoj1nMlfuF4Wq9NOT4UDvHWx43t4M4Kpr4IvvSBzuN3enUoTzZW4grupmGferyKRqYzNY2D1wFSsGoVBiWpTGa8Ihmn0od3jR2VCxoVjvN49DMTuGj6joLZumcxFZjYLoNdGWpRUwY8sTBYVVy4ojEun83sHy2dA2h26UW7ffxE0IX0FE5IrX0a7v5kY2gx+ThOjXwu26/6Uh3YuIu5jOeHMsZJqQsx66GrDbXeRdScFQsYezciR/ayYcCeFkg+GYE3ON1CPtRRWnVKK6aL6heUKc9DXah5nvPyFTYeWjdxPUJm78bs+VflZGok6EGV4ZU0utXqefrO8O1H9wDcPYcrrN/Akmi0/iWLXaif46ORPCwSFxwMj4R3i4GWRw4ub+HDrcjiferPpoAVIjzM32qCqPpvMEotFx7BeJBHO8dMmZMOxkQs7rNMbQ==
+    
+packages:
+  - ubuntu-desktop
+  - vim
+  - net-tools
+  - lynis
+  - citrix-workspace
+  - forticlient
+  - openvpn
+
+network:
+  version: 2
+  ethernets:
+    enp3s0:
+      dhcp4: true
+
+late-commands:
+  - echo 'cryptroot UUID=$(blkid -o value -s UUID /dev/sda2) none luks,discard,initramfs' >> /target/etc/crypttab
+    # Fügt die LUKS-Konfiguration zur /etc/crypttab hinzu für das Booten
+  - echo '/swapfile none swap sw 0 0' >> /target/etc/fstab
+    # Fügt das Swap-File zur /etc/fstab hinzu, damit es beim Booten verwendet wird
+  - curtin in-target --target=/target -- swapoff -a
+    # Deaktiviert alle aktiven Swap-Dateien und -Partitionen
+  - curtin in-target --target=/target -- fallocate -l 4G /swapfile
+    # Erstellt eine 4 GB große Swap-Datei
+  - curtin in-target --target=/target -- chmod 600 /swapfile
+    # Setzt die Berechtigungen der Swap-Datei
+  - curtin in-target --target=/target -- mkswap /swapfile
+    # Initialisiert die Swap-Datei
+  - curtin in-target --target=/target -- swapon /swapfile
+    # Aktiviert die Swap-Datei
